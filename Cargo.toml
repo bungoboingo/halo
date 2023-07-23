@@ -2,11 +2,24 @@
 name = "shader_buddy"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Shan <shankern@protonmail.com>"]
 
 [dependencies]
-iced = { git = "https://github.com/bungoboingo/iced.git", branch = "custom-shader/widget" }
-iced_graphics = { git = "https://github.com/bungoboingo/iced.git", branch = "custom-shader/widget" }
-wgpu = "0.16"
 bytemuck = "1.13.1"
+thiserror = "1.0.47"
+
+[dependencies.iced]
+git = "https://github.com/bungoboingo/iced.git"
+branch = "shader-widget"
+features = ["advanced", "web-colors"]
+
+[dependencies.wgpu]
+version = "0.17"
+
+[dependencies.naga]
+version = "0.13.0"
+features = ["wgsl-in"]
+
+[dependencies.glam]
+version = "0.24.2"
+features = ["bytemuck"]

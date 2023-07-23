@@ -1,25 +1,49 @@
 mod pipeline;
 mod primitive;
+mod uniforms;
 
-use crate::viewer::primitive::{Primitive, Uniforms};
-use iced::mouse::Cursor;
+use crate::viewer::primitive::Primitive;
+use crate::viewer::uniforms::Uniforms;
+use iced::advanced::Shell;
+use iced::event::Status;
+use iced::widget::shader::Event;
 use iced::{mouse, Point, Rectangle};
-use iced_graphics::custom::Program;
+use std::sync::Arc;
 use std::time::Instant;
+use iced::window::RedrawRequest;
 
 pub struct Viewer {
     start: Instant,
+    pub version: usize,
+    pub shader: Arc<String>,
 }
 
-impl Viewer {
-    pub fn new(start: Instant) -> Self {
-        Self { start }
+impl Default for Viewer {
+    fn default() -> Self {
+        Self {
+            start: Instant::now(),
+            version: 0,
+            shader: Arc::new(include_str!("viewer/shaders/default_frag.wgsl").to_string()),
+        }
     }
 }
 
-impl<Message> Program<Message> for Viewer {
+impl<Message> iced::widget::shader::Program<Message> for Viewer {
     type State = ();
     type Primitive = Primitive;
+
+    fn update(
+        &self,
+        _state: &mut Self::State,
+        _event: Event,
+        _bounds: Rectangle,
+        _cursor: mouse::Cursor,
+        shell: &mut Shell<'_, Message>,
+    ) -> (Status, Option<Message>) {
+        shell.request_redraw(RedrawRequest::NextFrame);
+
+        (Status::Ignored, None)
+    }
 
     fn draw(
         &self,
@@ -29,34 +53,16 @@ impl<Message> Program<Message> for Viewer {
     ) -> Self::Primitive {
         Primitive {
             uniforms: Uniforms {
-                position: bounds.position(),
                 time: Instant::now() - self.start,
-                scale: bounds.size(),
                 mouse: match cursor {
-                    Cursor::Available(pt) => pt,
-                    Cursor::Unavailable => Point::new(-1.0, -1.0),
+                    mouse::Cursor::Available(pt) => pt,
+                    //we go full circle..
+                    mouse::Cursor::Unavailable => Point::new(-1.0, -1.0),
                 },
+                bounds,
             },
+            shader: self.shader.clone(),
+            version: self.version,
         }
-    }
-
-    //TODO this is awkward
-    fn state(&self) -> &Self::State {
-        &()
-    }
-
-    fn mouse_interaction(
-        &self,
-        _state: &Self::State,
-        bounds: Rectangle,
-        cursor: mouse::Cursor,
-    ) -> mouse::Interaction {
-        if let mouse::Cursor::Available(point) = cursor {
-            if bounds.contains(point) {
-                return mouse::Interaction::Crosshair;
-            }
-        }
-
-        mouse::Interaction::Idle
     }
 }

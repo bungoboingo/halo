@@ -1,50 +1,54 @@
-use std::time::Duration;
-use iced::{Point, Rectangle, Size};
-use iced_graphics::custom::Storage;
-use iced_graphics::Transformation;
+use std::sync::Arc;
 use crate::viewer::pipeline::Pipeline;
+use crate::viewer::uniforms::Uniforms;
+use iced::widget::shader::Storage;
+use iced::widget::Transformation;
+use iced::{Rectangle, Size};
+use wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
 
 #[derive(Debug)]
 pub struct Primitive {
     pub uniforms: Uniforms,
+    pub shader: Arc<String>,
+    pub version: usize,
 }
 
-#[derive(Debug)]
-pub struct Uniforms {
-    pub time: Duration,
-    pub position: Point,
-    pub scale: Size,
-    pub mouse: Point,
-}
-
-impl iced_graphics::custom::Primitive for Primitive {
+impl iced::widget::shader::Primitive for Primitive {
     fn prepare(
         &self,
-        format: wgpu::TextureFormat,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        format: TextureFormat,
+        device: &Device,
+        queue: &Queue,
         _target_size: Size<u32>,
         scale_factor: f32,
         transform: Transformation,
         storage: &mut Storage,
     ) {
-        if let Some(pipeline) = storage.get_mut_or_init::<Pipeline>(|| {
-            Pipeline::new(device, format)
-        }) {
-            pipeline.prepare(queue, &self.uniforms, scale_factor, transform);
+        let should_store = storage
+            .get::<Pipeline>()
+            .map(|pipeline| pipeline.version < self.version)
+            .unwrap_or(true);
+
+        if should_store {
+            storage.store(Pipeline::new(device, format, &self.shader, self.version));
         }
+
+        let pipeline = storage.get_mut::<Pipeline>().unwrap();
+
+        pipeline.prepare(queue, &self.uniforms.to_raw(scale_factor, transform));
     }
 
     fn render(
         &self,
         storage: &Storage,
         bounds: Rectangle<u32>,
-        target: &wgpu::TextureView,
+        target: &TextureView,
         _target_size: Size<u32>,
-        encoder: &mut wgpu::CommandEncoder,
+        encoder: &mut CommandEncoder,
     ) {
-        if let Some(pipeline) = storage.get::<Pipeline>() {
-            pipeline.render(encoder, target, bounds);
-        }
+        let pipeline = storage.get::<Pipeline>().unwrap();
+
+        pipeline.render(encoder, target, bounds);
     }
 }
+
