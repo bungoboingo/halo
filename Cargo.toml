@@ -1,0 +1,12 @@
+[package]
+name = "shader_buddy"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+iced = { git = "https://github.com/bungoboingo/iced.git", branch = "custom-shader/widget" }
+iced_graphics = { git = "https://github.com/bungoboingo/iced.git", branch = "custom-shader/widget" }
+wgpu = "0.16"
+bytemuck = "1.13.1"
