@@ -17,14 +17,14 @@ impl Pipeline {
         version: usize,
     ) -> Self {
         let uniforms = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("shader_buddy.pipeline.uniforms"),
+            label: Some("halo.pipeline.uniforms"),
             size: std::mem::size_of::<uniforms::Raw>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("shader_buddy.pipeline.uniform_bind_group_layout"),
+            label: Some("halo.pipeline.uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
@@ -38,7 +38,7 @@ impl Pipeline {
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("shader_buddy.pipeline.uniform_bind_group"),
+            label: Some("halo.pipeline.uniform_bind_group"),
             layout: &layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -47,13 +47,13 @@ impl Pipeline {
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("shader_buddy.pipeline.layout"),
+            label: Some("halo.pipeline.layout"),
             bind_group_layouts: &[&layout],
             push_constant_ranges: &[],
         });
 
         let vertex_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("shader_buddy.pipeline.shader"),
+            label: Some("halo.pipeline.shader"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(concat!(
                 include_str!("shaders/uniforms.wgsl"),
                 "\n",
@@ -62,14 +62,14 @@ impl Pipeline {
         });
 
         let fragment_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("shader_buddy.pipeline.fragment_shader"),
+            label: Some("halo.pipeline.fragment_shader"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(
                 format!("{}\n{}", include_str!("shaders/uniforms.wgsl"), shader).as_str(),
             )),
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("shader_buddy.pipeline.pipeline"),
+            label: Some("halo.pipeline.pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &vertex_shader,
@@ -110,7 +110,7 @@ impl Pipeline {
         bounds: Rectangle<u32>,
     ) {
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("shader_buddy.render_pass"),
+            label: Some("halo.render_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: target,
                 resolve_target: None,

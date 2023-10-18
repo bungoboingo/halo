@@ -794,6 +794,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "halo"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "glam",
+ "iced",
+ "naga",
+ "thiserror",
+ "wgpu",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1834,18 +1846,6 @@ dependencies = [
  "memmap2 0.5.10",
  "smithay-client-toolkit",
  "tiny-skia 0.8.4",
-]
-
-[[package]]
-name = "shader_buddy"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "glam",
- "iced",
- "naga",
- "thiserror",
- "wgpu",
 ]
 
 [[package]]

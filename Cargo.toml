@@ -1,5 +1,5 @@
 [package]
-name = "shader_buddy"
+name = "halo"
 version = "0.1.0"
 edition = "2021"
 authors = ["Shan <shankern@protonmail.com>"]
