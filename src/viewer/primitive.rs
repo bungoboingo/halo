@@ -1,10 +1,8 @@
-use std::sync::Arc;
 use crate::viewer::pipeline::Pipeline;
 use crate::viewer::uniforms::Uniforms;
-use iced::widget::shader::Storage;
-use iced::widget::Transformation;
+use iced::widget::shader::{Storage, Transformation};
 use iced::{Rectangle, Size};
-use wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Primitive {
@@ -16,9 +14,9 @@ pub struct Primitive {
 impl iced::widget::shader::Primitive for Primitive {
     fn prepare(
         &self,
-        format: TextureFormat,
-        device: &Device,
-        queue: &Queue,
+        format: iced::widget::shader::wgpu::TextureFormat,
+        device: &iced::widget::shader::wgpu::Device,
+        queue: &iced::widget::shader::wgpu::Queue,
         _target_size: Size<u32>,
         scale_factor: f32,
         transform: Transformation,
@@ -42,13 +40,12 @@ impl iced::widget::shader::Primitive for Primitive {
         &self,
         storage: &Storage,
         bounds: Rectangle<u32>,
-        target: &TextureView,
+        target: &iced::widget::shader::wgpu::TextureView,
         _target_size: Size<u32>,
-        encoder: &mut CommandEncoder,
+        encoder: &mut iced::widget::shader::wgpu::CommandEncoder,
     ) {
         let pipeline = storage.get::<Pipeline>().unwrap();
 
         pipeline.render(encoder, target, bounds);
     }
 }
-

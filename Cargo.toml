@@ -9,15 +9,12 @@ bytemuck = "1.13.1"
 thiserror = "1.0.47"
 
 [dependencies.iced]
-git = "https://github.com/bungoboingo/iced.git"
-branch = "shader-widget"
+git = "https://github.com/iced-rs/iced.git"
+rev = "100d15f30654d446cffe2fb60a435c79c81b0188"
 features = ["advanced", "web-colors"]
 
-[dependencies.wgpu]
-version = "0.17"
-
 [dependencies.naga]
-version = "0.13.0"
+version = "0.14.1"
 features = ["wgsl-in"]
 
 [dependencies.glam]

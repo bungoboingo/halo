@@ -1,4 +1,4 @@
-use iced::widget::Transformation;
+use iced::widget::shader::Transformation;
 use iced::{Point, Rectangle};
 use std::time::Duration;
 
@@ -13,7 +13,10 @@ impl Uniforms {
         Raw {
             transform: transform.into(),
             position: [self.bounds.x * scale_factor, self.bounds.y * scale_factor],
-            scale: [self.bounds.width * scale_factor, self.bounds.height * scale_factor],
+            scale: [
+                self.bounds.width * scale_factor,
+                self.bounds.height * scale_factor,
+            ],
             mouse: self.mouse.into(),
             time: self.time.as_secs_f32(),
             _padding: 0.0,

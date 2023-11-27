@@ -7,10 +7,10 @@ use crate::viewer::uniforms::Uniforms;
 use iced::advanced::Shell;
 use iced::event::Status;
 use iced::widget::shader::Event;
+use iced::window::RedrawRequest;
 use iced::{mouse, Point, Rectangle};
 use std::sync::Arc;
 use std::time::Instant;
-use iced::window::RedrawRequest;
 
 pub struct Viewer {
     start: Instant,
