@@ -108,6 +108,7 @@ impl Editor {
                         return (Event::UpdatePipeline(shader), Command::none());
                     }
                     Err(error) => {
+                        println!("Failed to validate: {error:?}");
                         self.validation_status = validation::Status::Invalid(error);
                     }
                 }
@@ -221,8 +222,14 @@ mod validation {
     //assumes shader is wgsl
     pub fn validate(shader: &str) -> Result<(), Error> {
         //parse separately so we can show errors instead of panicking on pipeline creation
+        let shader = format!(
+            "{}\n{}",
+            include_str!("viewer/shaders/uniforms.wgsl"),
+            shader
+        );
+
         let parsed =
-            naga::front::wgsl::parse_str(shader).map_err(|err| Error::Parse(err.to_string()))?;
+            naga::front::wgsl::parse_str(&shader).map_err(|err| Error::Parse(err.to_string()))?;
 
         naga::valid::Validator::new(
             naga::valid::ValidationFlags::default(),
@@ -285,6 +292,7 @@ pub mod file {
     }
 }
 
+//TODO colored icons once I have an actual theme
 pub fn icon<'a, Message: 'static>(char: char) -> Element<'a, Message> {
     const FONT: Font = Font::with_name("halo-icons");
 
