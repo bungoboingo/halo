@@ -1,54 +1,61 @@
-mod validation;
+mod editor;
+mod theme;
 mod viewer;
 
+use crate::editor::{Editor, Event};
 use crate::viewer::Viewer;
-use iced::alignment::Horizontal;
 use iced::font::{Family, Stretch, Style, Weight};
-use iced::theme::Button;
-use iced::widget::shader::Shader;
-use iced::widget::{button, container, text};
-use iced::{executor, font, Application, Color, Command, Element, Length, Theme};
-use std::path::PathBuf;
+use iced::widget::pane_grid::Configuration;
+use iced::widget::{container, pane_grid, PaneGrid};
+use iced::{
+    executor, keyboard, window, Application, Background, Color, Command, Element, Font, Length,
+    Subscription, Theme,
+};
 
-const TITLE: &str = "ShaderBuddy";
+const TITLE: &str = "Halo";
 
-const JETBRAINS_MONO: iced::Font = iced::Font {
+const JETBRAINS_MONO: Font = Font {
     family: Family::Name("JetBrains Mono"),
     weight: Weight::Normal,
     stretch: Stretch::Normal,
     style: Style::Normal,
 };
-const PIXEL_FONT: iced::Font = iced::Font {
-    family: Family::Name("Pixelify Sans"),
-    weight: Weight::Bold,
-    stretch: Stretch::Normal,
-    style: Style::Normal,
-};
 
 fn main() -> iced::Result {
-    ShaderBuddy::run(iced::Settings::default())
+    Halo::run(iced::Settings {
+        fonts: vec![
+            include_bytes!("../fonts/JetBrainsMono-Regular.ttf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/halo-icons.ttf").as_slice().into(),
+        ],
+        window: window::Settings {
+            size: (1600, 900),
+            ..Default::default()
+        },
+        default_font: Font::MONOSPACE,
+        ..Default::default()
+    })
 }
 
-struct ShaderBuddy {
-    shader_path: Option<PathBuf>,
+struct Halo {
     viewer: Viewer,
-    error: Option<validation::Error>,
-    show_intro: bool,
+    editor: Editor,
+    panes: pane_grid::State<Pane>,
 }
 
+//TODO toggle editor
 #[derive(Clone, Debug)]
 enum Message {
-    PathSet(PathBuf),
-    ValidateShader(String),
-    CloseIntro,
-    FontLoaded(Result<(), font::Error>),
-    // System file open dialogue
-    OpenShaderFile,
-    // Show/close the editor
-    ToggleEditor,
+    PaneResized(pane_grid::ResizeEvent),
+    Editor(editor::Message),
+    KeyPressed {
+        key: keyboard::KeyCode,
+        modifiers: keyboard::Modifiers,
+    },
 }
 
-impl Application for ShaderBuddy {
+impl Application for Halo {
     type Executor = executor::Default;
     type Message = Message;
     type Theme = Theme;
@@ -56,20 +63,19 @@ impl Application for ShaderBuddy {
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         (
-            //TODO load from saved state
+            //TODO save settings
             Self {
-                shader_path: None,
                 viewer: Viewer::default(),
-                error: None,
-                show_intro: true,
+                editor: Editor::default(),
+                panes: pane_grid::State::with_configuration(Configuration::Split {
+                    axis: pane_grid::Axis::Vertical,
+                    ratio: 0.5,
+                    a: Box::new(Configuration::Pane(Pane::Viewer)),
+                    b: Box::new(Configuration::Pane(Pane::Editor)),
+                }),
             },
-            //TODO maybe should add a fonts::load or something for multiple..
-            Command::batch(vec![
-                font::load(include_bytes!("../fonts/JetBrainsMono-Regular.ttf").as_slice())
-                    .map(Message::FontLoaded),
-                font::load(include_bytes!("../fonts/PixelifySans-Bold.ttf").as_slice())
-                    .map(Message::FontLoaded),
-            ]),
+            //TODO load last shader file from settings
+            Command::none(),
         )
     }
 
@@ -79,78 +85,94 @@ impl Application for ShaderBuddy {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            Message::PathSet(path) => {
-                self.shader_path = Some(path);
-            }
-            //triggers on editor save
-            Message::ValidateShader(shader_src) => {
-                match validation::validate(&shader_src) {
-                    Ok(_) => {
-                        self.viewer.shader = shader_src.into();
-                        //increment version so we can update the pipeline with new shader
+            Message::Editor(msg) => {
+                let (event, cmd) = self.editor.update(msg);
+
+                match event {
+                    Event::UpdatePipeline(shader) => {
+                        self.viewer.last_valid_shader = shader.into();
                         self.viewer.version += 1;
-                        self.error = None;
                     }
-                    Err(error) => {
-                        //TODO display wgsl validation error somewhere
-                        self.error = Some(error);
-                    }
+                    _ => {}
+                };
+
+                return cmd.map(Message::Editor);
+            }
+            Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
+                self.panes.resize(split, ratio);
+            }
+            Message::KeyPressed { key, modifiers } => {
+                if let Some(msg) = self.editor.keypress(key, modifiers).map(Message::Editor) {
+                    return self.update(msg);
                 }
             }
-            Message::CloseIntro => {
-                self.show_intro = false;
-            }
-            Message::OpenShaderFile => {
-                //TODO
-            }
-            Message::ToggleEditor => {
-                //TODO
-            }
-            _ => {}
         }
 
         Command::none()
     }
 
-    fn view(&self) -> Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
-        let bg: Element<Message> = Shader::new(&self.viewer)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into();
+    fn view(&self) -> Element<Message> {
+        let panes = PaneGrid::new(&self.panes, |id, pane, _| {
+            pane.view(&self.editor, &self.viewer).into()
+        })
+        .on_resize(10, Message::PaneResized);
 
-        container(bg)
+        container(panes)
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
     }
+
+    fn theme(&self) -> Self::Theme {
+        Theme::Dark
+    }
+
+    fn subscription(&self) -> Subscription<Self::Message> {
+        keyboard::on_key_press(|key, modifiers| Some(Message::KeyPressed { key, modifiers }))
+    }
 }
 
-struct IntroStyle;
+enum Pane {
+    Viewer,
+    Editor,
+}
 
-impl container::StyleSheet for IntroStyle {
-    type Style = Theme;
-
-    fn appearance(&self, _style: &Self::Style) -> container::Appearance {
-        container::Appearance {
-            text_color: Some(Color::WHITE),
-            background: Some(Color::BLACK.into()),
-            border_color: Color::WHITE,
-            border_width: 1.0,
-            ..Default::default()
+impl Pane {
+    fn view<'a>(&'a self, editor: &'a Editor, viewer: &'a Viewer) -> pane_grid::Content<Message> {
+        match self {
+            Self::Viewer => viewer.content(),
+            Self::Editor => pane_grid::Content::new(editor.view().map(Message::Editor)).title_bar(
+                pane_grid::TitleBar::new(editor.title_bar().map(Message::Editor)),
+            ),
         }
     }
 }
 
-impl button::StyleSheet for IntroStyle {
+struct PaneStyle;
+
+impl pane_grid::StyleSheet for PaneStyle {
     type Style = Theme;
 
-    fn active(&self, _style: &Self::Style) -> button::Appearance {
-        button::Appearance {
-            background: Some(Color::BLACK.into()),
-            text_color: Color::WHITE,
-            border_width: 1.0,
-            border_color: Color::WHITE,
-            ..Default::default()
+    fn hovered_region(&self, style: &Self::Style) -> pane_grid::Appearance {
+        pane_grid::Appearance {
+            background: Background::Color(style.extended_palette().primary.base.color),
+            border_width: 0.0,
+            border_color: Color::BLACK,
+            border_radius: 0.0.into(),
         }
+    }
+
+    fn picked_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
+        Some(pane_grid::Line {
+            color: style.extended_palette().primary.base.color,
+            width: 10.0,
+        })
+    }
+
+    fn hovered_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
+        Some(pane_grid::Line {
+            color: style.extended_palette().secondary.base.color,
+            width: 10.0,
+        })
     }
 }

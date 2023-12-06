@@ -4,27 +4,40 @@ mod uniforms;
 
 use crate::viewer::primitive::Primitive;
 use crate::viewer::uniforms::Uniforms;
+use crate::Message;
 use iced::advanced::Shell;
 use iced::event::Status;
 use iced::widget::shader::Event;
+use iced::widget::{pane_grid, Shader};
 use iced::window::RedrawRequest;
-use iced::{mouse, Point, Rectangle};
+use iced::{mouse, Length, Point, Rectangle};
 use std::sync::Arc;
 use std::time::Instant;
 
 pub struct Viewer {
     start: Instant,
+    pub last_valid_shader: Arc<String>,
     pub version: usize,
-    pub shader: Arc<String>,
 }
 
 impl Default for Viewer {
     fn default() -> Self {
         Self {
             start: Instant::now(),
+            last_valid_shader: Arc::new(
+                include_str!("viewer/shaders/default_frag.wgsl").to_string(),
+            ),
             version: 0,
-            shader: Arc::new(include_str!("viewer/shaders/default_frag.wgsl").to_string()),
         }
+    }
+}
+
+impl Viewer {
+    pub fn content(&self) -> pane_grid::Content<Message> {
+        Shader::new(self)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
     }
 }
 
@@ -61,7 +74,7 @@ impl<Message> iced::widget::shader::Program<Message> for Viewer {
                 },
                 bounds,
             },
-            shader: self.shader.clone(),
+            shader: self.last_valid_shader.clone(),
             version: self.version,
         }
     }
