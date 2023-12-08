@@ -21,6 +21,10 @@ const JETBRAINS_MONO: Font = Font {
     style: Style::Normal,
 };
 
+// TODOS
+// Unsaved file -- prompt "save?"
+// New default shader
+
 fn main() -> iced::Result {
     Halo::run(iced::Settings {
         fonts: vec![

@@ -1,7 +1,8 @@
-use iced::alignment::{Horizontal, Vertical};
-use iced::highlighter::Highlighter;
-use iced::widget::{button, container, row, text, text_editor};
-use iced::{alignment, highlighter, keyboard, Alignment, Color, Command, Element, Font, Length};
+mod highlighter;
+
+use crate::editor::highlighter::Highlighter;
+use iced::widget::{button, checkbox, container, row, text, text_editor, tooltip};
+use iced::{alignment, keyboard, theme, Alignment, Command, Element, Font, Length};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -9,11 +10,16 @@ use std::sync::Arc;
 pub enum Message {
     Action(text_editor::Action),
     Validate,
+    AutoValidate(bool),
     New,
     Open,
     Loaded(Result<(PathBuf, Arc<String>), file::Error>),
     Save,
     Saved(Result<PathBuf, file::Error>),
+    Undo,
+    Redo,
+    Search,
+    Indent,
 }
 
 pub enum Event {
@@ -23,9 +29,10 @@ pub enum Event {
 
 pub struct Editor {
     content: text_editor::Content,
-    theme: highlighter::Theme,
+    theme: iced::highlighter::Theme,
     shader_path: Option<PathBuf>,
     validation_status: validation::Status,
+    auto_validate: bool,
     is_loading: bool,
 }
 
@@ -35,9 +42,10 @@ impl Default for Editor {
             content: text_editor::Content::with_text(include_str!(
                 "viewer/shaders/default_frag.wgsl"
             )),
-            theme: highlighter::Theme::Base16Mocha,
+            theme: iced::highlighter::Theme::Base16Mocha,
             shader_path: None,
             validation_status: validation::Status::default(),
+            auto_validate: false,
             is_loading: false,
         }
     }
@@ -50,8 +58,12 @@ impl Editor {
         modifiers: keyboard::Modifiers,
     ) -> Option<Message> {
         match key {
-            keyboard::KeyCode::Enter if modifiers.shift() => Some(Message::Validate),
+            keyboard::KeyCode::Enter if modifiers.control() => Some(Message::Validate),
             keyboard::KeyCode::S if modifiers.command() => Some(Message::Save),
+            keyboard::KeyCode::Z if modifiers.command() => Some(Message::Undo),
+            keyboard::KeyCode::Y if modifiers.command() => Some(Message::Redo),
+            keyboard::KeyCode::F if modifiers.command() => Some(Message::Search),
+            keyboard::KeyCode::Tab => Some(Message::Indent),
             _ => None,
         }
     }
@@ -59,13 +71,31 @@ impl Editor {
     pub fn update(&mut self, update: Message) -> (Event, Command<Message>) {
         match update {
             Message::Action(action) => {
-                if action.is_edit() {
-                    self.validation_status = validation::Status::NeedsValidation
-                }
+                //TODO fix not being able to use hotkeys while text editor is focused
+                //TODO auto validation after idk. Like 2 seconds after editing.
+                let validate = if action.is_edit() {
+                    self.validation_status = validation::Status::NeedsValidation;
+                    self.auto_validate
+                } else {
+                    false
+                };
+
                 self.content.perform(action);
+
+                if validate {
+                    return self.update(Message::Validate);
+                }
             }
             Message::New => {
-                //TODO
+                let empty_shader = include_str!("viewer/shaders/empty_frag.wgsl");
+
+                self.shader_path = None;
+                self.content = text_editor::Content::with_text(empty_shader);
+
+                return (
+                    Event::UpdatePipeline(empty_shader.to_string()),
+                    Command::none(),
+                );
             }
             Message::Open => {
                 //TODO
@@ -113,19 +143,46 @@ impl Editor {
                     }
                 }
             }
+            Message::AutoValidate(checked) => {
+                self.auto_validate = checked;
+            }
+            Message::Undo => {
+                //TODO!
+            }
+            Message::Redo => {
+                //TODO!
+            }
+            Message::Indent => {
+                //TODO!
+            }
+            Message::Search => {
+                //TODO!
+            }
         }
 
         (Event::None, Command::none())
     }
 
     pub fn view(&self) -> Element<Message> {
+        let errors =
+            if let validation::Status::Invalid(validation::Error::Parse { message, errors }) =
+                &self.validation_status
+            {
+                errors
+                    .iter()
+                    .map(|(range, msg)| range)
+                    .cloned()
+                    .collect::<Vec<_>>()
+            } else {
+                vec![]
+            };
+
         container(
             text_editor(&self.content)
                 .highlight::<Highlighter>(
                     highlighter::Settings {
-                        theme: self.theme,
-                        // for now, close enough :-P
-                        extension: "rs".to_string(), //TODO wgsl
+                        theme: iced::highlighter::Theme::Base16Mocha,
+                        errors,
                     },
                     |highlight, _theme| highlight.to_format(),
                 )
@@ -144,11 +201,13 @@ impl Editor {
         let validation_controls = container(
             row![
                 container(self.validation_status.icon())
-                    .width(34)
+                    .width(24)
                     .height(34)
                     .center_y(),
                 text(format!("{}", self.validation_status)),
+                checkbox("Auto", self.auto_validate, Message::AutoValidate),
             ]
+            .spacing(10)
             .align_items(Alignment::Center),
         )
         .width(Length::Fill)
@@ -156,15 +215,9 @@ impl Editor {
 
         let file_controls = container(
             row![
-                button(new_icon).width(34).height(34).on_press(Message::New),
-                button(open_icon)
-                    .width(34)
-                    .height(34)
-                    .on_press(Message::Open),
-                button(save_icon)
-                    .width(34)
-                    .height(34)
-                    .on_press(Message::Save),
+                control_button(new_icon, "Create a new shader", Message::New),
+                control_button(open_icon, "Open a shader file", Message::Open),
+                control_button(save_icon, "Save current shader", Message::Save),
             ]
             .spacing(10)
             .align_items(Alignment::Center),
@@ -180,11 +233,24 @@ impl Editor {
     }
 }
 
+fn control_button<'a>(
+    content: impl Into<Element<'a, Message>>,
+    label: &'a str,
+    on_press: Message,
+) -> Element<'a, Message> {
+    let button = button(container(content).width(30).center_x());
+
+    tooltip(button.on_press(on_press), label, tooltip::Position::Bottom)
+        .style(theme::Container::Box)
+        .into()
+}
+
 mod validation {
     use crate::editor::{icon, Message};
     use iced::Element;
     use naga::valid::Capabilities;
     use std::fmt::Formatter;
+    use std::ops::Range;
 
     #[derive(Default, Debug)]
     pub enum Status {
@@ -228,8 +294,13 @@ mod validation {
             shader
         );
 
-        let parsed =
-            naga::front::wgsl::parse_str(&shader).map_err(|err| Error::Parse(err.to_string()))?;
+        let parsed = naga::front::wgsl::parse_str(&shader).map_err(|parse_error| Error::Parse {
+            message: parse_error.message().to_string(),
+            errors: parse_error
+                .labels()
+                .filter_map(|(span, err)| span.to_range().map(|r| (r, err.to_string())))
+                .collect::<Vec<_>>(),
+        })?;
 
         naga::valid::Validator::new(
             naga::valid::ValidationFlags::default(),
@@ -243,8 +314,11 @@ mod validation {
 
     #[derive(thiserror::Error, Debug)]
     pub enum Error {
-        #[error("Shader parsing error: {0}")]
-        Parse(String),
+        #[error("Shader parsing error")]
+        Parse {
+            message: String,
+            errors: Vec<(Range<usize>, String)>,
+        },
         #[error("Validation error: {0}")]
         Validation(String),
     }
@@ -296,9 +370,5 @@ pub mod file {
 pub fn icon<'a, Message: 'static>(char: char) -> Element<'a, Message> {
     const FONT: Font = Font::with_name("halo-icons");
 
-    text(char)
-        .font(FONT)
-        .horizontal_alignment(Horizontal::Center)
-        .vertical_alignment(Vertical::Center)
-        .into()
+    text(char).font(FONT).into()
 }
