@@ -4,13 +4,18 @@ A program for editing `.wgsl` shaders, written in [Iced](https://github.com/iced
 Halo is currently in very early WIP. Basic functionality is complete, e.g. you can edit shaders and immediately see the 
 results, but it is missing a lot of QOL features.
 
+Big thanks to [relrelb](https://github.com/relrelb) for the [WGSL Sublime SyntaxSet](https://github.
+com/relrelb/sublime-wgsl) 💙
+
 # 0.1 Roadmap
 ### Easy
-- [ ] Support normal editor hotkeys e.g. undo/redo, open, tab, etc.
+- [ ] Support normal editor hotkeys e.g. open, tab, etc.
+  - Tab can probably be merged into Iced editor
 - [ ] Custom Halo iced theme
 - [ ] Editor show/hide toggle
 ### Medium
-- [ ] WGSL syntax highlighting
+- [ ] History for undo/redo with customizable length
+  - Merge into Iced editor
 - [ ] Inline error messages w/ tooltip
 - [ ] Create a more Halo-like default shader
 
@@ -27,7 +32,7 @@ results, but it is missing a lot of QOL features.
 - [ ] Support custom texture sampling in uniforms (e.g. ShaderToy's "channel"s)
 
 ### Hard
-- [ ] Basic WGSL formatter w/ hotkey
+- [ ] Basic WGSL formatter
 
 # 0.3.. and beyond?
 - [ ] Upload/download somewhere, maybe Nostr

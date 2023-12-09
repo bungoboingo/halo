@@ -1,6 +1,10 @@
+mod file;
 mod highlighter;
+mod validation;
 
 use crate::editor::highlighter::Highlighter;
+use crate::preferences::Preferences;
+use crate::{preferences, FragmentShader, JETBRAINS_MONO};
 use iced::widget::{button, checkbox, container, row, text, text_editor, tooltip};
 use iced::{alignment, keyboard, theme, Alignment, Command, Element, Font, Length};
 use std::path::PathBuf;
@@ -8,23 +12,25 @@ use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum Message {
+    Init(Result<(Preferences, Arc<FragmentShader>), preferences::Error>),
     Action(text_editor::Action),
     Validate,
     AutoValidate(bool),
     New,
     Open,
-    Loaded(Result<(PathBuf, Arc<String>), file::Error>),
+    Opened(Result<(PathBuf, Arc<FragmentShader>), file::Error>),
     Save,
     Saved(Result<PathBuf, file::Error>),
     Undo,
     Redo,
     Search,
     Indent,
+    PreferencesSaved(Result<(), preferences::Error>),
 }
 
 pub enum Event {
     None,
-    UpdatePipeline(String),
+    UpdatePipeline(Arc<FragmentShader>),
 }
 
 pub struct Editor {
@@ -45,8 +51,8 @@ impl Default for Editor {
             theme: iced::highlighter::Theme::Base16Mocha,
             shader_path: None,
             validation_status: validation::Status::default(),
-            auto_validate: false,
-            is_loading: false,
+            auto_validate: true,
+            is_loading: true,
         }
     }
 }
@@ -70,9 +76,25 @@ impl Editor {
 
     pub fn update(&mut self, update: Message) -> (Event, Command<Message>) {
         match update {
+            Message::Init(result) => {
+                let event = match result {
+                    Ok((prefs, shader)) => {
+                        self.auto_validate = prefs.auto_validate;
+                        self.shader_path = prefs.last_shader_path;
+                        self.content = text_editor::Content::with_text(&shader);
+                        Event::UpdatePipeline(shader)
+                    }
+                    Err(e) => {
+                        println!("Error loading prefs: {e:?}");
+                        Event::None
+                    }
+                };
+
+                self.is_loading = false;
+                return (event, Command::none());
+            }
             Message::Action(action) => {
                 //TODO fix not being able to use hotkeys while text editor is focused
-                //TODO auto validation after idk. Like 2 seconds after editing.
                 let validate = if action.is_edit() {
                     self.validation_status = validation::Status::NeedsValidation;
                     self.auto_validate
@@ -93,21 +115,33 @@ impl Editor {
                 self.content = text_editor::Content::with_text(empty_shader);
 
                 return (
-                    Event::UpdatePipeline(empty_shader.to_string()),
+                    Event::UpdatePipeline(Arc::new(empty_shader.to_string())),
                     Command::none(),
                 );
             }
             Message::Open => {
-                //TODO
+                let cmd = if self.is_loading {
+                    Command::none()
+                } else {
+                    self.is_loading = true;
+                    Command::perform(file::open(), Message::Opened)
+                };
+
+                return (Event::None, cmd);
             }
-            Message::Loaded(result) => {
-                if let Ok((path, shader)) = result {
+            Message::Opened(result) => {
+                let event = if let Ok((path, shader)) = result {
                     self.shader_path = Some(path);
                     self.content = text_editor::Content::with_text(&shader);
-                }
+                    Event::UpdatePipeline(shader)
+                } else {
+                    Event::None
+                };
 
-                //TODO show loading error somewhere
+                //TODO loading error msg
                 self.is_loading = false;
+
+                return (event, self.save_prefs());
             }
             Message::Save => {
                 return if self.is_loading {
@@ -124,8 +158,12 @@ impl Editor {
                     )
                 }
             }
-            Message::Saved(_result) => {
-                //TODO show some success feedback
+            Message::Saved(result) => {
+                if let Ok(path) = result {
+                    self.shader_path = Some(path);
+                }
+                //TODO handle error
+                return (Event::None, self.save_prefs());
             }
             Message::Validate => {
                 self.validation_status = validation::Status::Validating;
@@ -135,7 +173,7 @@ impl Editor {
                 match validation::validate(&shader) {
                     Ok(_) => {
                         self.validation_status = validation::Status::Validated;
-                        return (Event::UpdatePipeline(shader), Command::none());
+                        return (Event::UpdatePipeline(Arc::new(shader)), Command::none());
                     }
                     Err(error) => {
                         println!("Failed to validate: {error:?}");
@@ -145,6 +183,7 @@ impl Editor {
             }
             Message::AutoValidate(checked) => {
                 self.auto_validate = checked;
+                return (Event::None, self.save_prefs());
             }
             Message::Undo => {
                 //TODO!
@@ -158,9 +197,21 @@ impl Editor {
             Message::Search => {
                 //TODO!
             }
+            Message::PreferencesSaved(_) => {
+                println!("Prefs saved");
+            }
         }
 
         (Event::None, Command::none())
+    }
+
+    fn save_prefs(&self) -> Command<Message> {
+        let prefs = Preferences {
+            last_shader_path: self.shader_path.clone(),
+            auto_validate: self.auto_validate,
+        };
+
+        Command::perform(preferences::save(prefs), Message::PreferencesSaved)
     }
 
     pub fn view(&self) -> Element<Message> {
@@ -179,6 +230,7 @@ impl Editor {
 
         container(
             text_editor(&self.content)
+                .font(JETBRAINS_MONO)
                 .highlight::<Highlighter>(
                     highlighter::Settings {
                         theme: iced::highlighter::Theme::Base16Mocha,
@@ -202,9 +254,8 @@ impl Editor {
             row![
                 container(self.validation_status.icon())
                     .width(24)
-                    .height(34)
+                    .height(24)
                     .center_y(),
-                text(format!("{}", self.validation_status)),
                 checkbox("Auto", self.auto_validate, Message::AutoValidate),
             ]
             .spacing(10)
@@ -243,127 +294,6 @@ fn control_button<'a>(
     tooltip(button.on_press(on_press), label, tooltip::Position::Bottom)
         .style(theme::Container::Box)
         .into()
-}
-
-mod validation {
-    use crate::editor::{icon, Message};
-    use iced::Element;
-    use naga::valid::Capabilities;
-    use std::fmt::Formatter;
-    use std::ops::Range;
-
-    #[derive(Default, Debug)]
-    pub enum Status {
-        #[default]
-        Validated,
-        Validating,
-        Invalid(Error),
-        NeedsValidation,
-    }
-
-    impl std::fmt::Display for Status {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            let str = match self {
-                Status::Validated => "Validated!",
-                Status::Validating => "Validating...",
-                Status::Invalid(_) => "Invalid shader!",
-                Status::NeedsValidation => "Needs validation!",
-            };
-
-            write!(f, "{str}")
-        }
-    }
-
-    impl Status {
-        pub fn icon(&self) -> Element<Message> {
-            match self {
-                Status::Validated => icon('\u{e801}'),
-                Status::Invalid(_) => icon('\u{e802}'),
-                Status::Validating => icon('\u{e803}'),
-                Status::NeedsValidation => icon('\u{e803}'),
-            }
-        }
-    }
-
-    //assumes shader is wgsl
-    pub fn validate(shader: &str) -> Result<(), Error> {
-        //parse separately so we can show errors instead of panicking on pipeline creation
-        let shader = format!(
-            "{}\n{}",
-            include_str!("viewer/shaders/uniforms.wgsl"),
-            shader
-        );
-
-        let parsed = naga::front::wgsl::parse_str(&shader).map_err(|parse_error| Error::Parse {
-            message: parse_error.message().to_string(),
-            errors: parse_error
-                .labels()
-                .filter_map(|(span, err)| span.to_range().map(|r| (r, err.to_string())))
-                .collect::<Vec<_>>(),
-        })?;
-
-        naga::valid::Validator::new(
-            naga::valid::ValidationFlags::default(),
-            Capabilities::all(), //TODO get from device capabilities
-        )
-        .validate(&parsed)
-        .map_err(|err| Error::Validation(err.to_string()))?;
-
-        Ok(())
-    }
-
-    #[derive(thiserror::Error, Debug)]
-    pub enum Error {
-        #[error("Shader parsing error")]
-        Parse {
-            message: String,
-            errors: Vec<(Range<usize>, String)>,
-        },
-        #[error("Validation error: {0}")]
-        Validation(String),
-    }
-}
-
-pub mod file {
-    use std::path::{Path, PathBuf};
-    use std::sync::Arc;
-    use tokio::io;
-
-    pub async fn load(path: PathBuf) -> Result<(PathBuf, Arc<String>), Error> {
-        let contents = tokio::fs::read_to_string(&path)
-            .await
-            .map(Arc::new)
-            .map_err(|error| Error::IoError(error.kind()))?;
-
-        Ok((path, contents))
-    }
-
-    pub async fn save(path: Option<PathBuf>, contents: String) -> Result<PathBuf, Error> {
-        let path = if let Some(path) = path {
-            path
-        } else {
-            //TODO this lags UI
-            rfd::AsyncFileDialog::new()
-                .save_file()
-                .await
-                .as_ref()
-                .map(rfd::FileHandle::path)
-                .map(Path::to_owned)
-                .ok_or(Error::SaveDialogueClosed)?
-        };
-
-        tokio::fs::write(&path, contents)
-            .await
-            .map_err(|error| Error::IoError(error.kind()))?;
-
-        Ok(path)
-    }
-
-    #[derive(Debug, Clone)]
-    pub(crate) enum Error {
-        IoError(io::ErrorKind),
-        SaveDialogueClosed,
-    }
 }
 
 //TODO colored icons once I have an actual theme

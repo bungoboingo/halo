@@ -988,6 +988,8 @@ dependencies = [
  "naga",
  "once_cell",
  "rfd",
+ "serde",
+ "serde_json",
  "syntect",
  "thiserror",
  "tokio",

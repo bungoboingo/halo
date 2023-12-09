@@ -1,14 +1,14 @@
-use std::ops::Range;
-use iced::{Color, Font};
 use iced::advanced::text::highlighter::Format;
+use iced::{Color, Font};
 use once_cell::sync::Lazy;
+use std::ops::Range;
 use syntect::highlighting::StyleModifier;
 use syntect::parsing;
 
-// https://www.sublimetext.com/docs/syntax.html#include-syntax
-//TODO wgsl syntax
-static SYNTAXES: Lazy<parsing::SyntaxSet> =
-    Lazy::new(parsing::SyntaxSet::load_defaults_nonewlines);
+static WGSL_SYNTAX: Lazy<parsing::SyntaxSet> = Lazy::new(|| {
+    parsing::SyntaxSet::load_from_folder(format!("{}/assets", env!("CARGO_MANIFEST_DIR")))
+        .expect("Couldn't load WGSL syntax set")
+});
 
 static THEMES: Lazy<syntect::highlighting::ThemeSet> =
     Lazy::new(syntect::highlighting::ThemeSet::load_defaults);
@@ -34,9 +34,9 @@ pub struct Highlight(StyleModifier);
 
 impl Highlight {
     pub fn color(&self) -> Option<Color> {
-        self.0.foreground.map(|color| {
-            Color::from_rgba8(color.r, color.g, color.b, color.a as f32 / 255.0)
-        })
+        self.0
+            .foreground
+            .map(|color| Color::from_rgba8(color.r, color.g, color.b, color.a as f32 / 255.0))
     }
 
     pub fn font(&self) -> Option<Font> {
@@ -56,17 +56,15 @@ impl iced::advanced::text::Highlighter for Highlighter {
     type Highlight = Highlight;
 
     //TODO
-    type Iterator<'a> =
-    Box<dyn Iterator<Item = (Range<usize>, Self::Highlight)> + 'a>;
+    type Iterator<'a> = Box<dyn Iterator<Item = (Range<usize>, Self::Highlight)> + 'a>;
 
     fn new(settings: &Self::Settings) -> Self {
-        let syntax = SYNTAXES
-            .find_syntax_by_extension("rs")
-            .unwrap_or_else(|| SYNTAXES.find_syntax_plain_text());
+        let syntax = WGSL_SYNTAX
+            .find_syntax_by_extension("wgsl")
+            .unwrap_or_else(|| WGSL_SYNTAX.find_syntax_plain_text());
 
-        let highlighter = syntect::highlighting::Highlighter::new(
-            &THEMES.themes["base16-mocha.dark"]
-        );
+        let highlighter =
+            syntect::highlighting::Highlighter::new(&THEMES.themes["base16-mocha.dark"]);
 
         let parser = parsing::ParseState::new(syntax);
         let stack = parsing::ScopeStack::new();
@@ -97,13 +95,12 @@ impl iced::advanced::text::Highlighter for Highlighter {
             self.current_line = 0;
         }
 
-        let (parser, stack) =
-            self.caches.last().cloned().unwrap_or_else(|| {
-                (
-                    parsing::ParseState::new(self.syntax),
-                    parsing::ScopeStack::new(),
-                )
-            });
+        let (parser, stack) = self.caches.last().cloned().unwrap_or_else(|| {
+            (
+                parsing::ParseState::new(self.syntax),
+                parsing::ScopeStack::new(),
+            )
+        });
 
         // Each line has its own parser & scope..?
         self.caches.push((parser, stack));
@@ -111,19 +108,17 @@ impl iced::advanced::text::Highlighter for Highlighter {
 
     fn highlight_line(&mut self, line: &str) -> Self::Iterator<'_> {
         if self.current_line / LINES_PER_SNAPSHOT >= self.caches.len() {
-            let (parser, stack) =
-                self.caches.last().expect("Caches must not be empty");
+            let (parser, stack) = self.caches.last().expect("Caches must not be empty");
 
             self.caches.push((parser.clone(), stack.clone()));
         }
 
         self.current_line += 1;
 
-        let (parser, stack) =
-            self.caches.last_mut().expect("Caches must not be empty");
+        let (parser, stack) = self.caches.last_mut().expect("Caches must not be empty");
 
         //parse, the single line, returns scope stack operation
-        let ops = parser.parse_line(line, &SYNTAXES).unwrap_or_default();
+        let ops = parser.parse_line(line, &WGSL_SYNTAX).unwrap_or_default();
 
         let highlighter = &self.highlighter;
 
@@ -134,23 +129,20 @@ impl iced::advanced::text::Highlighter for Highlighter {
                 index: 0,
                 last_str_index: 0,
             }
-                .filter_map(move |(index, range, scope)| {
-                    let _ = stack.apply(&scope);
+            .filter_map(move |(index, range, scope)| {
+                let _ = stack.apply(&scope);
 
-                    if range.is_empty() {
-                        None
-                    } else {
-                        let modifier  = highlighter.style_mod_for_stack(&stack.scopes);
-                        println!("index: {index}");
+                if range.is_empty() {
+                    None
+                } else {
+                    let modifier = highlighter.style_mod_for_stack(&stack.scopes);
 
-                        Some((
-                            range,
-                            Highlight(
-                                highlighter.style_mod_for_stack(&stack.scopes),
-                            ),
-                        ))
-                    }
-                }),
+                    Some((
+                        range,
+                        Highlight(highlighter.style_mod_for_stack(&stack.scopes)),
+                    ))
+                }
+            }),
         )
     }
 

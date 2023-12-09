@@ -1,8 +1,10 @@
 mod editor;
+mod preferences;
 mod theme;
 mod viewer;
 
 use crate::editor::{Editor, Event};
+use crate::preferences::Preferences;
 use crate::viewer::Viewer;
 use iced::font::{Family, Stretch, Style, Weight};
 use iced::widget::pane_grid::Configuration;
@@ -11,8 +13,10 @@ use iced::{
     executor, keyboard, window, Application, Background, Color, Command, Element, Font, Length,
     Subscription, Theme,
 };
+use std::sync::Arc;
 
-const TITLE: &str = "Halo";
+const HALO: &str = "Halo";
+pub type FragmentShader = String;
 
 const JETBRAINS_MONO: Font = Font {
     family: Family::Name("JetBrains Mono"),
@@ -20,10 +24,6 @@ const JETBRAINS_MONO: Font = Font {
     stretch: Stretch::Normal,
     style: Style::Normal,
 };
-
-// TODOS
-// Unsaved file -- prompt "save?"
-// New default shader
 
 fn main() -> iced::Result {
     Halo::run(iced::Settings {
@@ -57,6 +57,7 @@ enum Message {
         key: keyboard::KeyCode,
         modifiers: keyboard::Modifiers,
     },
+    Loaded(Result<(Preferences, Arc<FragmentShader>), preferences::Error>),
 }
 
 impl Application for Halo {
@@ -79,12 +80,12 @@ impl Application for Halo {
                 }),
             },
             //TODO load last shader file from settings
-            Command::none(),
+            Command::perform(preferences::load(), Message::Loaded),
         )
     }
 
     fn title(&self) -> String {
-        TITLE.to_string()
+        HALO.to_string()
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
@@ -94,7 +95,7 @@ impl Application for Halo {
 
                 match event {
                     Event::UpdatePipeline(shader) => {
-                        self.viewer.last_valid_shader = shader.into();
+                        self.viewer.last_valid_shader = shader;
                         self.viewer.version += 1;
                     }
                     _ => {}
@@ -110,13 +111,16 @@ impl Application for Halo {
                     return self.update(msg);
                 }
             }
+            Message::Loaded(result) => {
+                return self.update(Message::Editor(editor::Message::Init(result)));
+            }
         }
 
         Command::none()
     }
 
     fn view(&self) -> Element<Message> {
-        let panes = PaneGrid::new(&self.panes, |id, pane, _| {
+        let panes = PaneGrid::new(&self.panes, |_id, pane, _is_maximized| {
             pane.view(&self.editor, &self.viewer).into()
         })
         .on_resize(10, Message::PaneResized);

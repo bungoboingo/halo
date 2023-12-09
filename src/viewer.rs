@@ -4,7 +4,7 @@ mod uniforms;
 
 use crate::viewer::primitive::Primitive;
 use crate::viewer::uniforms::Uniforms;
-use crate::Message;
+use crate::{FragmentShader, Message};
 use iced::advanced::Shell;
 use iced::event::Status;
 use iced::widget::shader::Event;
@@ -16,7 +16,7 @@ use std::time::Instant;
 
 pub struct Viewer {
     start: Instant,
-    pub last_valid_shader: Arc<String>,
+    pub last_valid_shader: Arc<FragmentShader>,
     pub version: usize,
 }
 
