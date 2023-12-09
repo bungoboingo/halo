@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-const PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "preferences.json");
+const PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/preferences.json");
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Preferences {

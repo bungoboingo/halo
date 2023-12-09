@@ -5,7 +5,8 @@ mod validation;
 use crate::editor::highlighter::Highlighter;
 use crate::preferences::Preferences;
 use crate::{preferences, FragmentShader, JETBRAINS_MONO};
-use iced::widget::{button, checkbox, container, row, text, text_editor, tooltip};
+use iced::alignment::Horizontal;
+use iced::widget::{button, checkbox, column, container, row, text, text_editor, tooltip};
 use iced::{alignment, keyboard, theme, Alignment, Command, Element, Font, Length};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -228,18 +229,38 @@ impl Editor {
                 vec![]
             };
 
-        container(
-            text_editor(&self.content)
-                .font(JETBRAINS_MONO)
-                .highlight::<Highlighter>(
-                    highlighter::Settings {
-                        theme: iced::highlighter::Theme::Base16Mocha,
-                        errors,
-                    },
-                    |highlight, _theme| highlight.to_format(),
-                )
-                .on_action(Message::Action),
+        let text_editor = text_editor(&self.content)
+            .font(JETBRAINS_MONO)
+            .highlight::<Highlighter>(
+                highlighter::Settings {
+                    theme: iced::highlighter::Theme::Base16Mocha,
+                    errors,
+                },
+                |highlight, _theme| highlight.to_format(),
+            )
+            .on_action(Message::Action);
+
+        let path = container(text(
+            self.shader_path
+                .as_ref()
+                .map_or("".to_string(), |p| p.to_string_lossy().to_string()),
+        ))
+        .align_x(Horizontal::Left)
+        .width(Length::Fill);
+
+        let char_count = container(
+            //TODO expose a len() function from iced editor to avoid extra allocation
+            text(self.content.text().len()),
         )
+        .align_x(Horizontal::Right)
+        .width(Length::Fill);
+
+        container(column![
+            text_editor,
+            row![path, char_count]
+                .width(Length::Fill)
+                .padding([5, 10, 5, 10])
+        ])
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
