@@ -5,14 +5,13 @@ mod viewer;
 
 use crate::editor::{Editor, Event};
 use crate::preferences::Preferences;
+use crate::theme::Theme;
 use crate::viewer::Viewer;
+use iced::application::StyleSheet;
 use iced::font::{Family, Stretch, Style, Weight};
 use iced::widget::pane_grid::Configuration;
 use iced::widget::{container, pane_grid, PaneGrid};
-use iced::{
-    executor, keyboard, window, Application, Background, Color, Command, Element, Font, Length,
-    Subscription, Theme,
-};
+use iced::{executor, keyboard, window, Application, Command, Element, Font, Length, Subscription};
 use std::sync::Arc;
 
 const HALO: &str = "Halo";
@@ -153,34 +152,5 @@ impl Pane {
                 pane_grid::TitleBar::new(editor.title_bar().map(Message::Editor)),
             ),
         }
-    }
-}
-
-struct PaneStyle;
-
-impl pane_grid::StyleSheet for PaneStyle {
-    type Style = Theme;
-
-    fn hovered_region(&self, style: &Self::Style) -> pane_grid::Appearance {
-        pane_grid::Appearance {
-            background: Background::Color(style.extended_palette().primary.base.color),
-            border_width: 0.0,
-            border_color: Color::BLACK,
-            border_radius: 0.0.into(),
-        }
-    }
-
-    fn picked_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
-        Some(pane_grid::Line {
-            color: style.extended_palette().primary.base.color,
-            width: 10.0,
-        })
-    }
-
-    fn hovered_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
-        Some(pane_grid::Line {
-            color: style.extended_palette().secondary.base.color,
-            width: 10.0,
-        })
     }
 }

@@ -1,9 +1,10 @@
 use crate::editor::{icon, Message};
 use iced::widget::tooltip;
-use iced::{theme, Element};
+use iced::Element;
 use naga::valid::Capabilities;
 use std::fmt::Formatter;
 use std::ops::Range;
+use crate::theme;
 
 #[derive(Default, Debug)]
 pub enum Status {
@@ -38,7 +39,7 @@ impl Status {
         };
 
         tooltip(icon, self.to_string(), tooltip::Position::Bottom)
-            .style(theme::Container::Box)
+            .style(theme::Container::Tooltip)
             .into()
     }
 }
