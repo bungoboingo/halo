@@ -1,20 +1,22 @@
 mod editor;
 mod preferences;
 mod theme;
-mod widget;
 mod viewer;
+mod widget;
 
 use crate::editor::{Editor, Event};
 use crate::preferences::Preferences;
 use crate::theme::Theme;
-use crate::widget::pane_grid::PaneGrid;
-use crate::widget::{Element, FragmentShader};
 use crate::viewer::Viewer;
+use crate::widget::pane_grid::PaneGrid;
+use crate::widget::Element;
 use iced::font::{Family, Stretch, Style, Weight};
-use iced::widget::{container, pane_grid};
 use iced::widget::pane_grid::Configuration;
+use iced::widget::{container, pane_grid};
 use iced::{executor, keyboard, window, Application, Command, Font, Length, Subscription};
 use std::sync::Arc;
+
+pub type FragmentShader = String;
 
 const HALO: &str = "Halo";
 

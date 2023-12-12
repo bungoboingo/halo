@@ -4,7 +4,7 @@ mod uniforms;
 
 use crate::viewer::primitive::Primitive;
 use crate::viewer::uniforms::Uniforms;
-use crate::{Message, widget};
+use crate::{widget, FragmentShader, Message};
 use iced::advanced::Shell;
 use iced::event::Status;
 use iced::widget::shader::Event;
@@ -14,7 +14,6 @@ use iced::{mouse, Length, Point, Rectangle};
 use std::sync::Arc;
 use std::time::Instant;
 use widget::pane_grid;
-use crate::widget::FragmentShader;
 
 pub struct Viewer {
     start: Instant,

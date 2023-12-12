@@ -1,8 +1,8 @@
-use crate::widget::FragmentShader;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
+use crate::FragmentShader;
 
 const PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/preferences.json");
 

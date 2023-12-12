@@ -1,7 +1,5 @@
 use crate::theme::Theme;
 
-pub type FragmentShader = String;
-
 // theme type aliases
 pub type Renderer = iced::Renderer<Theme>;
 pub type Element<'a, Message> = iced::Element<'a, Message, Renderer>;
