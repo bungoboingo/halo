@@ -1,8 +1,8 @@
-use crate::FragmentShader;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
+use crate::FragmentShader;
 
 const PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/preferences.json");
 
@@ -21,12 +21,10 @@ pub async fn load() -> Result<(Preferences, Arc<FragmentShader>), Error> {
     let prefs: Preferences = serde_json::from_str(&file).map_err(|_| Error::Deserialize)?;
 
     let shader = if let Some(shader_path) = &prefs.last_shader_path {
-        tokio::fs::read_to_string(shader_path)
-            .await
-            .map_err(|e| {
-                println!("Error reading shader at path: {shader_path:?} -- {e:?}");
-                Error::Io
-            })?
+        tokio::fs::read_to_string(shader_path).await.map_err(|e| {
+            println!("Error reading shader at path: {shader_path:?} -- {e:?}");
+            Error::Io
+        })?
     } else {
         include_str!("viewer/shaders/default_frag.wgsl").to_string()
     };

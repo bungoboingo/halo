@@ -4,10 +4,11 @@ mod validation;
 
 use crate::editor::highlighter::Highlighter;
 use crate::preferences::Preferences;
-use crate::{preferences, FragmentShader, JETBRAINS_MONO};
+use crate::widget::Element;
+use crate::{preferences, theme, FragmentShader, JETBRAINS_MONO};
 use iced::alignment::Horizontal;
 use iced::widget::{button, checkbox, column, container, row, text, text_editor, tooltip};
-use iced::{alignment, keyboard, theme, Alignment, Command, Element, Font, Length};
+use iced::{alignment, keyboard, Alignment, Command, Font, Length};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -313,7 +314,7 @@ fn control_button<'a>(
     let button = button(container(content).width(30).center_x());
 
     tooltip(button.on_press(on_press), label, tooltip::Position::Bottom)
-        .style(theme::Container::Box)
+        .style(theme::Container::Tooltip)
         .into()
 }
 
