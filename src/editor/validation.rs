@@ -3,7 +3,8 @@ use iced::widget::tooltip;
 use naga::valid::Capabilities;
 use std::fmt::Formatter;
 use std::ops::Range;
-use crate::theme;
+use std::sync::Arc;
+use crate::{FragmentShader, theme};
 use crate::widget::Element;
 
 #[derive(Default, Debug)]
@@ -39,21 +40,22 @@ impl Status {
         };
 
         tooltip(icon, self.to_string(), tooltip::Position::Bottom)
+            .padding(10)
             .style(theme::Container::Tooltip)
             .into()
     }
 }
 
 //assumes shader is wgsl
-pub fn validate(shader: &str) -> Result<(), Error> {
+pub async fn validate(shader: Arc<FragmentShader>) -> Result<Arc<FragmentShader>, Error> {
     //parse separately so we can show errors instead of panicking on pipeline creation
-    let shader = format!(
+    let concat_shader = format!(
         "{}\n{}",
         include_str!("../viewer/shaders/uniforms.wgsl"),
         shader
     );
 
-    let parsed = naga::front::wgsl::parse_str(&shader).map_err(|parse_error| Error::Parse {
+    let parsed = naga::front::wgsl::parse_str(&concat_shader).map_err(|parse_error| Error::Parse {
         message: parse_error.message().to_string(),
         errors: parse_error
             .labels()
@@ -68,10 +70,10 @@ pub fn validate(shader: &str) -> Result<(), Error> {
         .validate(&parsed)
         .map_err(|err| Error::Validation(err.to_string()))?;
 
-    Ok(())
+    Ok(shader)
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Clone, Debug)]
 pub enum Error {
     #[error("Shader parsing error")]
     Parse {
