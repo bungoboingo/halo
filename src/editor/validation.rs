@@ -1,11 +1,11 @@
 use crate::editor::{icon, Message};
+use crate::widget::Element;
+use crate::{theme, FragmentShader};
 use iced::widget::tooltip;
 use naga::valid::Capabilities;
 use std::fmt::Formatter;
 use std::ops::Range;
 use std::sync::Arc;
-use crate::{FragmentShader, theme};
-use crate::widget::Element;
 
 #[derive(Default, Debug)]
 pub enum Status {
@@ -55,20 +55,21 @@ pub async fn validate(shader: Arc<FragmentShader>) -> Result<Arc<FragmentShader>
         shader
     );
 
-    let parsed = naga::front::wgsl::parse_str(&concat_shader).map_err(|parse_error| Error::Parse {
-        message: parse_error.message().to_string(),
-        errors: parse_error
-            .labels()
-            .filter_map(|(span, err)| span.to_range().map(|r| (r, err.to_string())))
-            .collect::<Vec<_>>(),
-    })?;
+    let parsed =
+        naga::front::wgsl::parse_str(&concat_shader).map_err(|parse_error| Error::Parse {
+            message: parse_error.message().to_string(),
+            errors: parse_error
+                .labels()
+                .filter_map(|(span, err)| span.to_range().map(|r| (r, err.to_string())))
+                .collect::<Vec<_>>(),
+        })?;
 
     naga::valid::Validator::new(
         naga::valid::ValidationFlags::default(),
         Capabilities::all(), //TODO get from device capabilities
     )
-        .validate(&parsed)
-        .map_err(|err| Error::Validation(err.to_string()))?;
+    .validate(&parsed)
+    .map_err(|err| Error::Validation(err.to_string()))?;
 
     Ok(shader)
 }

@@ -101,16 +101,10 @@ impl Editor {
             }
             Message::Action(action) => {
                 //TODO fix not being able to use hotkeys while text editor is focused
-                let validate = if action.is_edit() {
-                    self.validation_status = validation::Status::NeedsValidation;
-                    self.auto_validate
-                } else {
-                    false
-                };
-
+                let should_validate = action.is_edit() && self.auto_validate;
                 self.content.perform(action);
 
-                if validate {
+                if should_validate {
                     return self.update(Message::Validate);
                 }
             }
@@ -177,7 +171,6 @@ impl Editor {
             }
             Message::Validate => {
                 self.validation_status = validation::Status::Validating;
-
                 let shader = Arc::new(self.content.text());
 
                 return (
@@ -191,7 +184,7 @@ impl Editor {
                     return (Event::UpdatePipeline(shader), Command::none());
                 }
                 Err(error) => {
-                    println!("Failed to validate: {error:?}");
+                    println!("Invalid: {error:?}");
                     self.validation_status = validation::Status::Invalid(error);
                 }
             },
@@ -278,7 +271,7 @@ impl Editor {
             {
                 column![
                     text_editor,
-                    tmp_error_view(&errors, &self.content.text()),
+                    tmp_error_view(message, &errors, &self.content.text()),
                     info,
                 ]
             } else {
@@ -354,15 +347,16 @@ pub fn icon<'a, Message: 'static>(char: char) -> Element<'a, Message> {
     text(char).font(FONT).into()
 }
 
-fn tmp_error_view<'a>(errors: &[(Range<usize>, String)], shader: &str) -> Element<'a, Message> {
+fn tmp_error_view<'a>(msg: &str, errors: &[(Range<usize>, String)], shader: &str) -> Element<'a, Message> {
     let errors = errors
         .iter()
-        .map(|(range, msg)| {
+        .map(|(range, err_msg)| {
             let slice = shader.get(range.start..=range.end);
             if let Some(slice) = slice {
-                text(format!("{msg}:\n    {slice}"))
+                //TODO can't render tabs..?
+                text(format!("{msg}:\n    {err_msg}:\n        {slice}"))
             } else {
-                text(msg)
+                text(format!("{msg}:\n    {err_msg}"))
             }
             .style(theme::Text::Error)
             .size(14)
