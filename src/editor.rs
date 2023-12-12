@@ -4,10 +4,11 @@ mod validation;
 
 use crate::editor::highlighter::Highlighter;
 use crate::preferences::Preferences;
-use crate::{preferences, FragmentShader, JETBRAINS_MONO, theme};
+use crate::widget::{Element, FragmentShader};
+use crate::{preferences, theme, JETBRAINS_MONO};
 use iced::alignment::Horizontal;
 use iced::widget::{button, checkbox, column, container, row, text, text_editor, tooltip};
-use iced::{alignment, keyboard, Alignment, Command, Element, Font, Length};
+use iced::{alignment, keyboard, Alignment, Command, Font, Length};
 use std::path::PathBuf;
 use std::sync::Arc;
 

@@ -1,4 +1,4 @@
-use crate::FragmentShader;
+use crate::widget::FragmentShader;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::io;

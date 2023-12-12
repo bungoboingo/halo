@@ -1,10 +1,10 @@
 use crate::editor::{icon, Message};
 use iced::widget::tooltip;
-use iced::Element;
 use naga::valid::Capabilities;
 use std::fmt::Formatter;
 use std::ops::Range;
 use crate::theme;
+use crate::widget::Element;
 
 #[derive(Default, Debug)]
 pub enum Status {
