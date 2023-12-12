@@ -1,19 +1,37 @@
 use iced::widget::{button, checkbox, container, pane_grid, text, text_editor};
 use iced::{application, Color};
 
-// Base
-const DARKEST_BLUE: Color = Color::from_rgb8(18, 42, 79);
-const DARK_BLUE: Color = Color::from_rgb8(38, 62, 99);
-const MEDIUM_BLUE: Color = Color::from_rgb8(84, 111, 149);
-const NEUTRAL_BLUE: Color = Color::from_rgb8(113, 134, 162);
-const LIGHT_BLUE: Color = Color::from_rgb8(158, 175, 195);
-// Accents
-const SALMON: Color = Color::from_rgb8(235, 94, 85);
-const GOLD: Color = Color::from_rgb8(255, 159, 28);
-const OFF_WHITE: Color = Color::from_rgb8(242, 239, 233);
-const LIGHT_GREY: Color = Color::from_rgb8(226, 226, 226);
+//const OFF_WHITE: Color = Color::from_rgb8(242, 239, 233);
 
-const DISABLED: Color = Color::from_rgb8(153,158,162);
+struct Palette {
+    pub base: Color,
+    pub base_darker: Color,
+    pub base_darkest: Color,
+    pub base_lighter: Color,
+    pub base_lightest: Color,
+    pub background: Color,
+    pub text: Color,
+    pub disabled: Color,
+    pub accent: Color,
+    pub accent_secondary: Color,
+}
+
+impl Default for Palette {
+    fn default() -> Self {
+        Self {
+            base: Color::from_rgb8(84, 111, 149),             // MEDIUM BLUE
+            base_darker: Color::from_rgb8(38, 62, 99),        // DARK BLUE
+            base_darkest:Color::from_rgb8(22, 30, 59),        // DARK BLUE
+            base_lighter: Color::from_rgb8(113, 134, 162),    // LIGHTER BLUE
+            base_lightest: Color::from_rgb8(158, 175, 195),   // LIGHTEST BLUE,
+            background: Color::from_rgb8(12, 12, 30),         // DARKEST BLUE
+            text: Color::from_rgb8(226, 226, 226),            // LIGHT GREY
+            disabled: Color::from_rgb8(153, 158, 162),        // MEDIUM GREY,
+            accent: Color::from_rgb8(235, 94, 85),            // SALMON
+            accent_secondary: Color::from_rgb8(255, 159, 28), // GOLD
+        }
+    }
+}
 
 //borders
 const BORDER_RADIUS: f32 = 5.0;
@@ -22,9 +40,9 @@ const BORDER_WIDTH: f32 = 2.0;
 /// Reduces intensity by 10%
 fn dim(color: Color) -> Color {
     Color {
-        r: color.r * 0.10,
-        g: color.g * 0.10,
-        b: color.b * 0.10,
+        r: color.r * 0.70,
+        g: color.g * 0.70,
+        b: color.b * 0.70,
         a: color.a,
     }
 }
@@ -36,22 +54,28 @@ pub enum Theme {
     Dark,
 }
 
+impl Theme {
+    pub fn palette(&self) -> Palette {
+        match self {
+            //TODO light palette
+            Theme::Light => Palette::default(),
+            Theme::Dark => Palette::default(),
+        }
+    }
+}
+
 #[derive(Default)]
-struct Application;
+pub struct Application;
 
 impl application::StyleSheet for Theme {
     type Style = Application;
 
     fn appearance(&self, _style: &Self::Style) -> application::Appearance {
-        match self {
-            Theme::Light => application::Appearance {
-                background_color: LIGHT_BLUE,
-                text_color: DARKEST_BLUE,
-            },
-            Theme::Dark => application::Appearance {
-                background_color: DARK_BLUE,
-                text_color: LIGHT_GREY,
-            },
+        let palette = self.palette();
+
+        application::Appearance {
+            background_color: palette.background,
+            text_color: palette.text,
         }
     }
 }
@@ -59,6 +83,7 @@ impl application::StyleSheet for Theme {
 #[derive(Default)]
 pub enum Container {
     Tooltip,
+    Controls,
     #[default]
     None,
 }
@@ -67,27 +92,24 @@ impl container::StyleSheet for Theme {
     type Style = Container;
 
     fn appearance(&self, style: &Self::Style) -> container::Appearance {
-        match self {
-            Theme::Light => match style {
-                Container::Tooltip => container::Appearance {
-                    text_color: Some(DARKEST_BLUE),
-                    background: Some(LIGHT_BLUE.into()),
-                    border_radius: BORDER_RADIUS.into(),
-                    border_width: BORDER_WIDTH,
-                    border_color: DARK_BLUE,
-                },
-                Container::None => container::Appearance::default(),
+        let palette = self.palette();
+
+        match style {
+            Container::Tooltip => container::Appearance {
+                text_color: Some(palette.text),
+                background: Some(palette.base_darker.into()),
+                border_radius: BORDER_RADIUS.into(),
+                border_width: BORDER_WIDTH,
+                border_color: palette.base_darkest,
             },
-            Theme::Dark => match style {
-                Container::Tooltip => container::Appearance {
-                    text_color: Some(LIGHT_GREY),
-                    background: Some(DARK_BLUE.into()),
-                    border_radius: BORDER_RADIUS.into(),
-                    border_width: BORDER_WIDTH,
-                    border_color: DARKEST_BLUE,
-                },
-                Container::None => container::Appearance::default(),
-            },
+            Container::None => container::Appearance::default(),
+            Container::Controls => container::Appearance {
+                text_color: Some(palette.text),
+                background: Some(palette.base_darkest.into()),
+                border_radius: Default::default(),
+                border_width: 0.0,
+                border_color: Default::default(),
+            }
         }
     }
 }
@@ -102,13 +124,10 @@ impl text::StyleSheet for Theme {
     type Style = Text;
 
     fn appearance(&self, _style: Self::Style) -> text::Appearance {
-        match self {
-            Theme::Light => text::Appearance {
-                color: Some(DARKEST_BLUE),
-            },
-            Theme::Dark => text::Appearance {
-                color: Some(LIGHT_GREY),
-            },
+        let palette = self.palette();
+
+        text::Appearance {
+            color: Some(palette.text),
         }
     }
 }
@@ -119,33 +138,31 @@ pub struct PaneGrid;
 impl pane_grid::StyleSheet for Theme {
     type Style = PaneGrid;
 
-    fn hovered_region(&self, style: &Self::Style) -> pane_grid::Appearance {
-        match self {
-            Theme::Light => pane_grid::Appearance {
-                background: LIGHT_BLUE.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                border_radius: Default::default(),
-            },
-            Theme::Dark => pane_grid::Appearance {
-                background: DARK_BLUE.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                border_radius: Default::default(),
-            },
+    fn hovered_region(&self, _style: &Self::Style) -> pane_grid::Appearance {
+        let palette = self.palette();
+
+        pane_grid::Appearance {
+            background: palette.background.into(),
+            border_width: 0.0,
+            border_color: Default::default(),
+            border_radius: Default::default(),
         }
     }
 
-    fn picked_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
+    fn picked_split(&self, _style: &Self::Style) -> Option<pane_grid::Line> {
+        let palette = self.palette();
+
         Some(pane_grid::Line {
-            color: SALMON,
+            color: palette.accent_secondary,
             width: 5.0,
         })
     }
 
-    fn hovered_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
+    fn hovered_split(&self, _style: &Self::Style) -> Option<pane_grid::Line> {
+        let palette = self.palette();
+
         Some(pane_grid::Line {
-            color: GOLD,
+            color: palette.accent,
             width: 5.0,
         })
     }
@@ -160,45 +177,29 @@ pub enum Button {
 impl button::StyleSheet for Theme {
     type Style = Button;
 
-    fn active(&self, style: &Self::Style) -> button::Appearance {
-        match self {
-            Theme::Light => button::Appearance {
-                shadow_offset: Default::default(),
-                background: Some(DARK_BLUE.into()),
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                text_color: LIGHT_GREY,
-            },
-            Theme::Dark => button::Appearance {
-                shadow_offset: Default::default(),
-                background: Some(MEDIUM_BLUE.into()),
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                text_color: DARKEST_BLUE,
-            }
+    fn active(&self, _style: &Self::Style) -> button::Appearance {
+        let palette = self.palette();
+
+        button::Appearance {
+            shadow_offset: Default::default(),
+            background: Some(palette.base.into()),
+            border_radius: 2.0.into(),
+            border_width: 0.0,
+            border_color: Default::default(),
+            text_color: palette.text,
         }
     }
 
-    fn hovered(&self, style: &Self::Style) -> button::Appearance {
-        match self {
-            Theme::Light => button::Appearance {
-                shadow_offset: Default::default(),
-                background: Some(dim(MEDIUM_BLUE).into()),
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                text_color: DARKEST_BLUE,
-            },
-            Theme::Dark => button::Appearance {
-                shadow_offset: Default::default(),
-                background: Some(dim(MEDIUM_BLUE).into()),
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                text_color: MEDIUM_BLUE,
-            }
+    fn hovered(&self, _style: &Self::Style) -> button::Appearance {
+        let palette = self.palette();
+
+        button::Appearance {
+            shadow_offset: Default::default(),
+            background: Some(palette.base_lighter.into()),
+            border_radius: 2.0.into(),
+            border_width: 0.0,
+            border_color: Default::default(),
+            text_color: palette.text,
         }
     }
 
@@ -213,112 +214,76 @@ pub struct Checkbox;
 impl checkbox::StyleSheet for Theme {
     type Style = Checkbox;
 
-    fn active(&self, style: &Self::Style, is_checked: bool) -> checkbox::Appearance {
-        match self {
-            Theme::Light => checkbox::Appearance {
-                background: if is_checked {
-                    MEDIUM_BLUE
-                } else {
-                    DISABLED
-                }.into(),
-                icon_color: LIGHT_GREY,
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                text_color: Some(DARKEST_BLUE),
-            },
-            Theme::Dark => checkbox::Appearance {
-                background: if is_checked {
-                    MEDIUM_BLUE
-                } else {
-                    DISABLED
-                }.into(),
-                icon_color: LIGHT_GREY,
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                text_color: Some(LIGHT_GREY),
-            },
+    fn active(&self, _style: &Self::Style, is_checked: bool) -> checkbox::Appearance {
+        let palette = self.palette();
+
+        checkbox::Appearance {
+            background: palette.base.into(),
+            icon_color: palette.text,
+            border_radius: 2.0.into(),
+            border_width: 0.0,
+            border_color: Default::default(),
+            text_color: Some(palette.text),
         }
     }
 
-    fn hovered(&self, style: &Self::Style, is_checked: bool) -> checkbox::Appearance {
-        match self {
-            Theme::Light => checkbox::Appearance {
-                background: if is_checked {
-                    dim(MEDIUM_BLUE)
-                } else {
-                    DISABLED
-                }.into(),
-                icon_color: LIGHT_GREY,
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                text_color: Some(DARKEST_BLUE),
-            },
-            Theme::Dark => checkbox::Appearance {
-                background: if is_checked {
-                    dim(MEDIUM_BLUE)
-                } else {
-                    DISABLED
-                }.into(),
-                icon_color: LIGHT_GREY,
-                border_radius: 2.0.into(),
-                border_width: 0.0,
-                border_color: Default::default(),
-                text_color: Some(LIGHT_GREY),
-            },
+    fn hovered(&self, _style: &Self::Style, is_checked: bool) -> checkbox::Appearance {
+        let palette = self.palette();
+
+        checkbox::Appearance {
+            background: palette.base_lighter.into(),
+            icon_color: palette.text,
+            border_radius: 2.0.into(),
+            border_width: 0.0,
+            border_color: Default::default(),
+            text_color: Some(palette.text),
         }
     }
 }
 
 #[derive(Default)]
-struct Editor;
+pub struct Editor;
 
 impl text_editor::StyleSheet for Theme {
     type Style = Editor;
 
-    fn active(&self, style: &Self::Style) -> text_editor::Appearance {
+    fn active(&self, _style: &Self::Style) -> text_editor::Appearance {
+        let palette = self.palette();
+
         text_editor::Appearance {
-            background: Color::TRANSPARENT.into(),
+            background: palette.background.into(),
             border_radius: Default::default(),
             border_width: 0.0,
             border_color: Default::default(),
         }
     }
 
-    fn focused(&self, style: &Self::Style) -> text_editor::Appearance {
+    fn focused(&self, _style: &Self::Style) -> text_editor::Appearance {
         text_editor::Appearance {
-            background: Color::TRANSPARENT.into(),
+            background: self.palette().background.into(),
             border_radius: Default::default(),
             border_width: 0.0,
             border_color: Default::default(),
         }
     }
 
-    fn placeholder_color(&self, style: &Self::Style) -> Color {
-        DISABLED
+    fn placeholder_color(&self, _style: &Self::Style) -> Color {
+        self.palette().disabled
     }
 
-    fn value_color(&self, style: &Self::Style) -> Color {
-        match self {
-            Theme::Light => DARKEST_BLUE,
-            Theme::Dark => LIGHT_GREY,
-        }
+    fn value_color(&self, _style: &Self::Style) -> Color {
+        self.palette().text
     }
 
-    fn disabled_color(&self, style: &Self::Style) -> Color {
-        DISABLED
+    fn disabled_color(&self, _style: &Self::Style) -> Color {
+        self.palette().disabled
     }
 
-    fn selection_color(&self, style: &Self::Style) -> Color {
-        match self {
-            Theme::Light => MEDIUM_BLUE,
-            Theme::Dark => MEDIUM_BLUE,
-        }
+    fn selection_color(&self, _style: &Self::Style) -> Color {
+        self.palette().base_darker
     }
 
-    fn disabled(&self, style: &Self::Style) -> text_editor::Appearance {
+    fn disabled(&self, _style: &Self::Style) -> text_editor::Appearance {
         text_editor::Appearance {
             background: Color::TRANSPARENT.into(),
             border_radius: Default::default(),

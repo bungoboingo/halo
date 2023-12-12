@@ -4,10 +4,12 @@ mod validation;
 
 use crate::editor::highlighter::Highlighter;
 use crate::preferences::Preferences;
-use crate::widget::Element;
+use crate::widget::text_editor::TextEditor;
+use crate::widget::{text_editor, Element};
 use crate::{preferences, theme, FragmentShader, JETBRAINS_MONO};
 use iced::alignment::Horizontal;
-use iced::widget::{button, checkbox, column, container, row, text, text_editor, tooltip};
+use iced::widget::text_editor::Action;
+use iced::widget::{button, checkbox, column, container, row, text, tooltip};
 use iced::{alignment, keyboard, Alignment, Command, Font, Length};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -15,8 +17,9 @@ use std::sync::Arc;
 #[derive(Clone, Debug)]
 pub enum Message {
     Init(Result<(Preferences, Arc<FragmentShader>), preferences::Error>),
-    Action(text_editor::Action),
+    Action(Action),
     Validate,
+    Validated(Result<Arc<FragmentShader>, validation::Error>),
     AutoValidate(bool),
     New,
     Open,
@@ -170,12 +173,15 @@ impl Editor {
             Message::Validate => {
                 self.validation_status = validation::Status::Validating;
 
-                let shader = self.content.text();
+                let shader = Arc::new(self.content.text());
 
-                match validation::validate(&shader) {
-                    Ok(_) => {
+                return (Event::None, Command::perform(validation::validate(shader), Message::Validated));
+            }
+            Message::Validated(result) => {
+                match result {
+                    Ok(shader) => {
                         self.validation_status = validation::Status::Validated;
-                        return (Event::UpdatePipeline(Arc::new(shader)), Command::none());
+                        return (Event::UpdatePipeline(shader), Command::none());
                     }
                     Err(error) => {
                         println!("Failed to validate: {error:?}");
@@ -230,8 +236,9 @@ impl Editor {
                 vec![]
             };
 
-        let text_editor = text_editor(&self.content)
+        let text_editor = TextEditor::new(&self.content)
             .font(JETBRAINS_MONO)
+            .padding(10)
             .highlight::<Highlighter>(
                 highlighter::Settings {
                     theme: iced::highlighter::Theme::Base16Mocha,
@@ -253,8 +260,7 @@ impl Editor {
             //TODO expose a len() function from iced editor to avoid extra allocation
             text(self.content.text().len()),
         )
-        .align_x(Horizontal::Right)
-        .width(Length::Fill);
+        .align_x(Horizontal::Right);
 
         container(column![
             text_editor,
@@ -298,11 +304,15 @@ impl Editor {
         .width(Length::Fill)
         .align_x(alignment::Horizontal::Right);
 
-        row![validation_controls, file_controls]
-            .width(Length::Fill)
-            .padding([10, 15, 10, 15])
-            .align_items(Alignment::Center)
-            .into()
+        container(
+            row![validation_controls, file_controls]
+                .width(Length::Fill)
+                .padding([10, 15, 10, 15])
+                .align_items(Alignment::Center),
+        )
+        .width(Length::Fill)
+        .style(theme::Container::Controls)
+        .into()
     }
 }
 
@@ -314,6 +324,7 @@ fn control_button<'a>(
     let button = button(container(content).width(30).center_x());
 
     tooltip(button.on_press(on_press), label, tooltip::Position::Bottom)
+        .padding(10)
         .style(theme::Container::Tooltip)
         .into()
 }
