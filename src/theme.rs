@@ -1,4 +1,4 @@
-use iced::widget::{button, checkbox, container, pane_grid, text, text_editor};
+use iced::widget::{button, checkbox, container, pane_grid, scrollable, text, text_editor};
 use iced::{application, Color};
 
 //const OFF_WHITE: Color = Color::from_rgb8(242, 239, 233);
@@ -14,6 +14,7 @@ struct Palette {
     pub disabled: Color,
     pub accent: Color,
     pub accent_secondary: Color,
+    pub error: Color,
 }
 
 impl Default for Palette {
@@ -21,7 +22,7 @@ impl Default for Palette {
         Self {
             base: Color::from_rgb8(84, 111, 149),             // MEDIUM BLUE
             base_darker: Color::from_rgb8(38, 62, 99),        // DARK BLUE
-            base_darkest:Color::from_rgb8(22, 30, 59),        // DARK BLUE
+            base_darkest: Color::from_rgb8(22, 30, 59),       // DARK BLUE
             base_lighter: Color::from_rgb8(113, 134, 162),    // LIGHTER BLUE
             base_lightest: Color::from_rgb8(158, 175, 195),   // LIGHTEST BLUE,
             background: Color::from_rgb8(12, 12, 30),         // DARKEST BLUE
@@ -29,6 +30,7 @@ impl Default for Palette {
             disabled: Color::from_rgb8(153, 158, 162),        // MEDIUM GREY,
             accent: Color::from_rgb8(235, 94, 85),            // SALMON
             accent_secondary: Color::from_rgb8(255, 159, 28), // GOLD
+            error: Color::from_rgb8(255, 77, 77),             // ERROR RED
         }
     }
 }
@@ -84,6 +86,7 @@ impl application::StyleSheet for Theme {
 pub enum Container {
     Tooltip,
     Controls,
+    Error,
     #[default]
     None,
 }
@@ -109,7 +112,14 @@ impl container::StyleSheet for Theme {
                 border_radius: Default::default(),
                 border_width: 0.0,
                 border_color: Default::default(),
-            }
+            },
+            Container::Error => container::Appearance {
+                text_color: Some(palette.error),
+                background: Some(palette.base_darkest.into()),
+                border_radius: Default::default(),
+                border_width: 1.0,
+                border_color: palette.error,
+            },
         }
     }
 }
@@ -118,16 +128,22 @@ impl container::StyleSheet for Theme {
 pub enum Text {
     #[default]
     Primary,
+    Error,
 }
 
 impl text::StyleSheet for Theme {
     type Style = Text;
 
-    fn appearance(&self, _style: Self::Style) -> text::Appearance {
+    fn appearance(&self, style: Self::Style) -> text::Appearance {
         let palette = self.palette();
 
-        text::Appearance {
-            color: Some(palette.text),
+        match style {
+            Text::Primary => text::Appearance {
+                color: Some(palette.text),
+            },
+            Text::Error => text::Appearance {
+                color: Some(palette.error),
+            },
         }
     }
 }
@@ -214,7 +230,7 @@ pub struct Checkbox;
 impl checkbox::StyleSheet for Theme {
     type Style = Checkbox;
 
-    fn active(&self, _style: &Self::Style, is_checked: bool) -> checkbox::Appearance {
+    fn active(&self, _style: &Self::Style, _is_checked: bool) -> checkbox::Appearance {
         let palette = self.palette();
 
         checkbox::Appearance {
@@ -227,7 +243,7 @@ impl checkbox::StyleSheet for Theme {
         }
     }
 
-    fn hovered(&self, _style: &Self::Style, is_checked: bool) -> checkbox::Appearance {
+    fn hovered(&self, _style: &Self::Style, _is_checked: bool) -> checkbox::Appearance {
         let palette = self.palette();
 
         checkbox::Appearance {
@@ -290,5 +306,33 @@ impl text_editor::StyleSheet for Theme {
             border_width: 0.0,
             border_color: Default::default(),
         }
+    }
+}
+
+#[derive(Default)]
+pub struct Scrollable;
+
+impl scrollable::StyleSheet for Theme {
+    type Style = Scrollable;
+
+    fn active(&self, _style: &Self::Style) -> scrollable::Scrollbar {
+        let palette = self.palette();
+
+        scrollable::Scrollbar {
+            background: Some(palette.base_darker.into()),
+            border_radius: BORDER_RADIUS.into(),
+            border_width: 0.0,
+            border_color: Default::default(),
+            scroller: scrollable::Scroller {
+                color: palette.error,
+                border_radius: Default::default(),
+                border_width: 0.0,
+                border_color: Default::default(),
+            },
+        }
+    }
+
+    fn hovered(&self, style: &Self::Style, _is_mouse_over_scrollbar: bool) -> scrollable::Scrollbar {
+        self.active(style)
     }
 }

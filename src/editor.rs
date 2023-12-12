@@ -9,8 +9,9 @@ use crate::widget::{text_editor, Element};
 use crate::{preferences, theme, FragmentShader, JETBRAINS_MONO};
 use iced::alignment::Horizontal;
 use iced::widget::text_editor::Action;
-use iced::widget::{button, checkbox, column, container, row, text, tooltip};
+use iced::widget::{button, checkbox, column, container, row, scrollable, text, tooltip};
 use iced::{alignment, keyboard, Alignment, Command, Font, Length};
+use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -82,21 +83,21 @@ impl Editor {
     pub fn update(&mut self, update: Message) -> (Event, Command<Message>) {
         match update {
             Message::Init(result) => {
-                let event = match result {
+                let cmd = match result {
                     Ok((prefs, shader)) => {
                         self.auto_validate = prefs.auto_validate;
                         self.shader_path = prefs.last_shader_path;
                         self.content = text_editor::Content::with_text(&shader);
-                        Event::UpdatePipeline(shader)
+                        Command::perform(validation::validate(shader), Message::Validated)
                     }
                     Err(e) => {
                         println!("Error loading prefs: {e:?}");
-                        Event::None
+                        Command::none()
                     }
                 };
 
                 self.is_loading = false;
-                return (event, Command::none());
+                return (Event::None, cmd);
             }
             Message::Action(action) => {
                 //TODO fix not being able to use hotkeys while text editor is focused
@@ -135,18 +136,22 @@ impl Editor {
                 return (Event::None, cmd);
             }
             Message::Opened(result) => {
-                let event = if let Ok((path, shader)) = result {
+                let cmds = if let Ok((path, shader)) = result {
                     self.shader_path = Some(path);
                     self.content = text_editor::Content::with_text(&shader);
-                    Event::UpdatePipeline(shader)
+
+                    Command::batch(vec![
+                        self.save_prefs(),
+                        Command::perform(validation::validate(shader), Message::Validated),
+                    ])
                 } else {
-                    Event::None
+                    Command::none()
                 };
 
                 //TODO loading error msg
                 self.is_loading = false;
 
-                return (event, self.save_prefs());
+                return (Event::None, cmds);
             }
             Message::Save => {
                 return if self.is_loading {
@@ -175,20 +180,21 @@ impl Editor {
 
                 let shader = Arc::new(self.content.text());
 
-                return (Event::None, Command::perform(validation::validate(shader), Message::Validated));
+                return (
+                    Event::None,
+                    Command::perform(validation::validate(shader), Message::Validated),
+                );
             }
-            Message::Validated(result) => {
-                match result {
-                    Ok(shader) => {
-                        self.validation_status = validation::Status::Validated;
-                        return (Event::UpdatePipeline(shader), Command::none());
-                    }
-                    Err(error) => {
-                        println!("Failed to validate: {error:?}");
-                        self.validation_status = validation::Status::Invalid(error);
-                    }
+            Message::Validated(result) => match result {
+                Ok(shader) => {
+                    self.validation_status = validation::Status::Validated;
+                    return (Event::UpdatePipeline(shader), Command::none());
                 }
-            }
+                Err(error) => {
+                    println!("Failed to validate: {error:?}");
+                    self.validation_status = validation::Status::Invalid(error);
+                }
+            },
             Message::AutoValidate(checked) => {
                 self.auto_validate = checked;
                 return (Event::None, self.save_prefs());
@@ -262,15 +268,27 @@ impl Editor {
         )
         .align_x(Horizontal::Right);
 
-        container(column![
-            text_editor,
-            row![path, char_count]
-                .width(Length::Fill)
-                .padding([5, 10, 5, 10])
-        ])
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+        let info = row![path, char_count]
+            .width(Length::Fill)
+            .padding([5, 10, 5, 10]);
+
+        let content =
+            if let validation::Status::Invalid(validation::Error::Parse { message, errors }) =
+                &self.validation_status
+            {
+                column![
+                    text_editor,
+                    tmp_error_view(&errors, &self.content.text()),
+                    info,
+                ]
+            } else {
+                column![text_editor, info]
+            };
+
+        container(content)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
     }
 
     pub fn title_bar(&self) -> Element<Message> {
@@ -334,4 +352,34 @@ pub fn icon<'a, Message: 'static>(char: char) -> Element<'a, Message> {
     const FONT: Font = Font::with_name("halo-icons");
 
     text(char).font(FONT).into()
+}
+
+fn tmp_error_view<'a>(errors: &[(Range<usize>, String)], shader: &str) -> Element<'a, Message> {
+    let errors = errors
+        .iter()
+        .map(|(range, msg)| {
+            let slice = shader.get(range.start..=range.end);
+            if let Some(slice) = slice {
+                text(format!("{msg}:\n    {slice}"))
+            } else {
+                text(msg)
+            }
+            .style(theme::Text::Error)
+            .size(14)
+            .into()
+        })
+        .collect::<Vec<Element<'a, Message>>>();
+
+    container(
+        scrollable(
+            column(errors)
+                .width(Length::Fill)
+                .padding([10, 20, 10, 20])
+                .spacing(10),
+        )
+            .width(Length::Fill)
+            .height(100)
+    ).width(Length::Fill)
+    .style(theme::Container::Error)
+    .into()
 }

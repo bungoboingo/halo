@@ -9,9 +9,10 @@ com/relrelb/sublime-wgsl) 💙
 
 # 0.1 Roadmap
 ### Easy
+- [ ] Less ugly default theme + light theme + choose preference
+- [ ] List available uniform values
 - [ ] Support normal editor hotkeys e.g. open, tab, etc.
   - Tab can probably be merged into Iced editor
-- [ ] Custom Halo iced theme
 - [ ] Editor show/hide toggle
 ### Medium
 - [ ] History for undo/redo with customizable length
